@@ -1,4 +1,5 @@
-```clarity
+(define-data-var contract-deployer principal tx-sender)
+
 (define-map mint-price-map
   {id: uint}
   {price: uint})
@@ -13,22 +14,17 @@
 (define-public (mint-nft (id uint))
     (let (
             (price (unwrap! (get price (map-get? mint-price-map {id: id})) (err u101)))
-            (payment (contract-call? 'SP2J6Y09JMFWWZCT4VJX0BA5W7A9HZP5EX96Y6VZY.earlycrows-bonding-curve
-                                     mint 
-                                     id))
-          )
-        ;; Check if sufficient payment is made
-        (asserts! (>= (ft-get-balance tx-sender u"STX") price) (err u102))
-        ;; Make the payment to the corresponding address
+            (user-balance (stx-get-balance tx-sender))
+        )
+        ;; Check if the sender has sufficient balance
+        (asserts! (>= user-balance price) (err u102))
+        
+        ;; Transfer the STX to the bonding curve contract
         (stx-transfer? price tx-sender 'SP2J6Y09JMFWWZCT4VJX0BA5W7A9HZP5EX96Y6VZY)
-        (ok (contract-call? 'SP2J6Y09JMFWWZCT4VJX0BA5W7A9HZP5EX96Y6VZY.earlycrows-bonding-curve mint id))
+        
+        ;; Call the bonding curve contract's mint function
+        (let (
+                (mint-result (contract-call? 'SP2J6Y09JMFWWZCT4VJX0BA5W7A9HZP5EX96Y6VZY.earlycrows-bonding-curve mint id))
+              )
+          (ok mint-result))
     ))
-    
-(define-private (is-contract-deployer)
-    ;; Assuming that the deployer’s address is used as the contract deployer
-    true)
-
-(begin 
-  ;; Initialize the contract deployer address
-  (var-set contract-deployer tx-sender))
-```
