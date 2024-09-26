@@ -1,0 +1,34 @@
+```clarity
+(define-map mint-price-map
+  {id: uint}
+  {price: uint})
+  
+(define-public (set-mint-price (id uint) (price uint))
+    (begin
+        ;; Only the contract deployer can set the mint price
+        (asserts! (is-eq tx-sender (var-get contract-deployer)) (err u100))
+        (map-set mint-price-map {id: id} {price: price})
+        (ok u0)))
+        
+(define-public (mint-nft (id uint))
+    (let (
+            (price (unwrap! (get price (map-get? mint-price-map {id: id})) (err u101)))
+            (payment (contract-call? 'SP2J6Y09JMFWWZCT4VJX0BA5W7A9HZP5EX96Y6VZY.earlycrows-bonding-curve
+                                     mint 
+                                     id))
+          )
+        ;; Check if sufficient payment is made
+        (asserts! (>= (ft-get-balance tx-sender u"STX") price) (err u102))
+        ;; Make the payment to the corresponding address
+        (stx-transfer? price tx-sender 'SP2J6Y09JMFWWZCT4VJX0BA5W7A9HZP5EX96Y6VZY)
+        (ok (contract-call? 'SP2J6Y09JMFWWZCT4VJX0BA5W7A9HZP5EX96Y6VZY.earlycrows-bonding-curve mint id))
+    ))
+    
+(define-private (is-contract-deployer)
+    ;; Assuming that the deployer’s address is used as the contract deployer
+    true)
+
+(begin 
+  ;; Initialize the contract deployer address
+  (var-set contract-deployer tx-sender))
+```
